@@ -12,7 +12,7 @@
     , entry  :: btree:nodeid()
     , nodes  :: map() % #{btree:nodeid()=>btree:bnode()},
     , result :: btree:bresult() | btree:bnode()
-    , status :: map() % #{btree:nodeid()=>any()}
+    , status :: map() % #{any()=>any()}
 }).
 
 %% behavior node
@@ -22,6 +22,7 @@
     , handler  :: module()
     , props    :: list()
     , children :: [btree:nodeid()]
+    , status   :: map() % #{any()=>any()}
 }).
 
 -endif.

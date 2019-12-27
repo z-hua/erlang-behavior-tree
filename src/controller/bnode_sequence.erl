@@ -17,32 +17,33 @@
 %%% API Functions
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
-    #bt{status=Status} = Tree,
     #bn{id=NodeID, children=[ChildID | Rest]} = Node,
-    Tree2 = Tree#bt{status=maps:put(NodeID, Rest, Status)},
+    Node2 = Node#bn{status=#{children=>Rest}},
+    Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Tree#bt.nodes)},
     bnode_behavior:forward(Tree2, ChildID).
 
 
 backward(Tree, Node) when Tree#bt.result == ?FAILURE ->
-    #bt{status=Status} = Tree,
+    Node2 = Node#bn{status=#{}},
     Tree2 = Tree#bt{
-        status = maps:remove(Node#bn.id, Status),
-        result = ?FAILURE
+        result = ?FAILURE,
+        nodes  = maps:put(Node#bn.id, Node2, Tree#bt.nodes)
     },
-    bnode_behavior:backward(Tree2, Node);
+    bnode_behavior:backward(Tree2, Node2);
 backward(Tree, Node) when Tree#bt.result == ?SUCCESS ->
-    #bt{status=Status} = Tree,
-    #bn{id=NodeID} = Node,
-    case maps:get(NodeID, Status) of
+    #bn{id=NodeID, status=Status} = Node,
+    case maps:get(children, Status) of
         [ChildID | Rest] ->
-            Tree2 = Tree#bt{status=maps:put(NodeID, Rest, Status)},
+            Node2 = Node#bn{status=#{children=>Rest}},
+            Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Tree#bt.nodes)},
             bnode_behavior:forward(Tree2, ChildID);
         [] ->
+            Node2 = Node#bn{status=#{}},
             Tree2 = Tree#bt{
-                status = maps:remove(NodeID, Status),
-                result = ?SUCCESS
+                result = ?SUCCESS,
+                nodes  = maps:put(NodeID, Node2, Tree#bt.nodes)
             },
-            bnode_behavior:backward(Tree2, Node)
+            bnode_behavior:backward(Tree2, Node2)
     end.
 
 %%%-----------------------------------------------------------------------------

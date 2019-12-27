@@ -17,7 +17,6 @@
 %%% API Functions
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
-    #bt{status=Status} = Tree,
     #bn{id=NodeID, props=Props, children=[ChildID | Rest]} = Node,
     Result = case proplists:get_value(type, Props) of
         one_succ -> ?FAILURE;
@@ -25,14 +24,15 @@ forward(Tree, Node) ->
         all_succ -> ?SUCCESS;
         all_fail -> ?FAILURE
     end,
-    Tree2 = Tree#bt{status=maps:put(NodeID, {Result,Rest}, Status)},
+    Node2 = Node#bn{status=#{result=>Result, children=>Rest}},
+    Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Tree#bt.nodes)},
     bnode_behavior:forward(Tree2, ChildID).
 
 
 backward(Tree, Node) ->
-    #bt{result=Result, status=Status} = Tree,
-    #bn{id=NodeID, props=Props} = Node,
-    {AccResult, Children} = maps:get(NodeID, Status),
+    #bt{result=Result, nodes=Nodes} = Tree,
+    #bn{id=NodeID, props=Props, status=Status} = Node,
+    #{result:=AccResult, children:=Children} = Status,
     Type = proplists:get_value(type, Props),
     NewResult = case {Type, Result} of
         {one_succ, ?SUCCESS} -> ?SUCCESS;
@@ -46,14 +46,16 @@ backward(Tree, Node) ->
     end,
     case Children of
         [ChildID | Rest] ->
-            Tree2 = Tree#bt{status=maps:put(NodeID, {NewResult,Rest}, Status)},
+            Node2 = Node#bn{status=#{result=>NewResult, children=>Rest}},
+            Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Nodes)},
             bnode_behavior:forward(Tree2, ChildID);
         [] ->
+            Node2 = Node#bn{status=#{}},
             Tree2 = Tree#bt{
-                status = maps:remove(NodeID, Status),
-                result = NewResult
+                result = NewResult,
+                nodes  = maps:put(NodeID, Node2, Nodes)
             },
-            bnode_behavior:backward(Tree2, Node)
+            bnode_behavior:backward(Tree2, Node2)
     end.
 
 %%%-----------------------------------------------------------------------------

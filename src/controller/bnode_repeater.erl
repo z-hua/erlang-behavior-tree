@@ -17,42 +17,41 @@
 %%% API Functions
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
-    #bt{status=Status} = Tree,
     #bn{id=NodeID, props=Props, children=[ChildID]} = Node,
     Loop = proplists:get_value(loop, Props),
     case is_integer(Loop) of
         true  ->
-            Tree2 = maps:put(NodeID, Loop, Status),
+            Node2 = Node#bn{status=#{times=>Loop}},
+            Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Tree#bt.nodes)},
             bnode_behavior:forward(Tree2, Node);
         false ->
             bnode_behavior:forward(Tree, ChildID)
     end.
 
+
 backward(Tree, Node) ->
-    #bt{status=Status, result=Result} = Tree,
-    #bn{id=NodeID, props=Props} = Node,
+    #bt{nodes=Nodes, result=Result} = Tree,
+    #bn{id=NodeID, props=Props, status=Status} = Node,
     Loop = proplists:get_value(loop, Props),
-    case Loop of
-        until_succ when Result == ?SUCCESS ->
-            bnode_behavior:backward(Tree#bt{result=?SUCCESS}, Node);
-        until_succ ->
+    if
+        (Loop == until_succ andalso Result == ?SUCCESS);
+        (Loop == until_fail andalso Result == ?FAILURE) ->
+            bnode_behavior:backward(Tree, Node);
+        Loop == until_succ;
+        Loop == until_fail ->
             Tree#bt{result=Node};
-        until_fail when Result == ?FAILURE ->
-            bnode_behavior:backward(Tree#bt{result=?FAILURE}, Node);
-        until_fail ->
-            Tree#bt{result=Node};
-        infinity ->
-            Tree#bt{result=Node};
-        _ ->
-            Count = maps:get(NodeID, Status),
-            case Count - 1 of
+        true ->
+            CurTimes = maps:get(times, Status),
+            case CurTimes - 1 of
                 0 ->
-                    Tree2 = Tree#bt{status=maps:remove(NodeID, Status)},
-                    bnode_behavior:backward(Tree2, Node);
+                    Node2 = Node#bn{status=#{}},
+                    Tree2 = Tree#bt{nodes=maps:put(NodeID, Node2, Nodes)},
+                    bnode_behavior:backward(Tree2, Node2);
                 N ->
+                    Node2 = Node#bn{status=#{times=>N}},
                     Tree#bt{
-                        result = Node,
-                        status = maps:put(NodeID, N, Status)
+                        result = Node2,
+                        nodes  = maps:put(NodeID, Node2, Nodes)
                     }
             end
     end.
