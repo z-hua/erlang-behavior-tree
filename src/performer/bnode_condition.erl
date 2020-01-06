@@ -5,7 +5,7 @@
 %%% @end
 %%%=============================================================================
 
--module(bnode_action).
+-module(bnode_condition).
 
 -include("btree.hrl").
 
@@ -16,16 +16,19 @@
 %%% API Functions
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
-    Result = case proplists:get_value(action, Node#bn.props) of
+    TrueOrFalse = case proplists:get_value(action, Node#bn.props) of
     	{M,F,A} ->
     		apply(M, F, A);
+    	{M,F} ->
+    		apply(M, F, []);
     	F when is_function(F, 0) ->
     		F()
-    end,
-	case Result == ?RUNNING of
-        true  -> Tree#bt{result=Node};
-        false -> bnode_behavior:backward(Tree#bt{result=Result}, Node)
-    end.
+	end,
+	Result = case TrueOrFalse of
+	    true  -> ?SUCCESS;
+	    false -> ?FAILURE
+	end,
+	bnode_behavior:backward(Tree#bt{result=Result}, Node).
 
 %%%-----------------------------------------------------------------------------
 %%% Internal Functions
