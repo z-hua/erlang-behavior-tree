@@ -3,6 +3,20 @@
 
 ## 使用说明
 
+### 方法一
+
+1. 使用 freeplane(安装包在 priv 目录下) 配置行为树
+2. 将行为树导出为 xml 文件，出时文件类型选择 `Export row xml with node formatting(.xml)`
+3. 将 xml 文件路径传递给 `btree:new/1`
+
+### 方法二
+
+TODO
+
+1. 使用 freeplane 配置行为树
+2. 使用 TreeParser 解析行为树
+3. 将解析结果传递给 `btree:new/2`
+
 ---
 
 ## 节点说明
