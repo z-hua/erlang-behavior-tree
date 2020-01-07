@@ -18,7 +18,8 @@
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
     #bn{id=NodeID, props=Props, children=[ChildID | Rest]} = Node,
-    Result = case proplists:get_value(type, Props) of
+    Type = get_type(Props),
+    Result = case Type of
         one_succ -> ?FAILURE;
         one_fail -> ?SUCCESS;
         all_succ -> ?SUCCESS;
@@ -33,7 +34,7 @@ backward(Tree, Node) ->
     #bt{result=Result, nodes=Nodes} = Tree,
     #bn{id=NodeID, props=Props, status=Status} = Node,
     #{result:=AccResult, children:=Children} = Status,
-    Type = proplists:get_value(type, Props),
+    Type = get_type(Props),
     NewResult = case {Type, Result} of
         {one_succ, ?SUCCESS} -> ?SUCCESS;
         {one_fail, ?SUCCESS} -> AccResult;
@@ -61,3 +62,7 @@ backward(Tree, Node) ->
 %%%-----------------------------------------------------------------------------
 %%% Internal Functions
 %%%-----------------------------------------------------------------------------
+get_type(Props) ->
+    Type = proplists:get_value(type, Props),
+    ?_assertRequired(type, Type),
+    Type.

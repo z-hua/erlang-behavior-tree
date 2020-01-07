@@ -6,6 +6,10 @@
 -define(FAILURE, failure).
 -define(RUNNING, running).
 
+-define(_assertRequired(PropName, PropVal),
+    PropVal == undefined andalso throw({error, required_property, PropName})
+).
+
 %% behavior tree
 -record(bt, {
       ref    :: reference()

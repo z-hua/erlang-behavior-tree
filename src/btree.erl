@@ -36,6 +36,7 @@ new(File) ->
     case filelib:is_file(File) of
         true  ->
             Tree = xml2tree(File),
+            io:format("tree: ~p~n", [Tree]),
             set_tree(Tree),
             Tree#bt.ref;
         false ->
@@ -50,17 +51,35 @@ new(Entry, Nodes) ->
     Tree#bt.ref.
 
 run(Ref) ->
-	Tree  = get_tree(Ref),
-	Tree2 = case is_record(Tree#bt.result, bn) of
-		true  -> bnode_behavior:forward(Tree, Tree#bt.result);
-		false -> bnode_behavior:forward(Tree, Tree#bt.entry)
+	Tree   = #bt{status=Status} = get_tree(Ref),
+
+    io:format("run event~n"),
+    Events = maps:get(event, Status, []),
+    Tree1  = lists:foldl(fun
+        (Event, AccTree) ->
+            Listen = maps:get({listen,postponed,Event}, Status, []),
+            run_event(Listen, AccTree)
+    end, Tree, Events),
+
+    io:format("run tree~n"),
+    Tree2 = Tree1#bt{status=maps:remove(event, Status)},
+
+	Tree3 = case is_record(Tree2#bt.result, bn) of
+		true  -> bnode_behavior:forward(Tree2, Tree2#bt.result);
+		false -> bnode_behavior:forward(Tree2, Tree2#bt.entry)
 	end,
-    set_tree(Tree2).
+    set_tree(Tree3).
 
 event(Ref, Event) ->
-    Tree   = get_tree(Ref),
-    Listen = maps:get({event,Event}, Tree#bt.status, []),
-    Tree2  = run_event(Listen, Tree),
+    Tree    = #bt{status=Status} = get_tree(Ref),
+
+    Events  = maps:get(event, Status, []),
+    Events2 = lists:reverse([Event | Events]),
+    Status2 = maps:put(event, Events2, Status),
+    Tree1   = Tree#bt{status=Status2},
+
+    Listen  = maps:get({listen,immediate,Event}, Status, []),
+    Tree2   = run_event(Listen, Tree1),
     set_tree(Tree2).
 
 node(NodeID, Parent, Handler, Props, Children) ->
@@ -79,6 +98,7 @@ set_tree(Tree = #bt{ref=Ref}) ->
     put(?k_tree, Tree).
 
 run_event([NodeID | T], Tree) ->
+    io:format("run event: ~p~n", [{NodeID}]),
     Tree2 = bnode_behavior:forward(Tree, NodeID),
     run_event(T, Tree2);
 run_event([], Tree) ->
@@ -107,33 +127,30 @@ bnode(NodeID, Parent, Handler, Props, Children, Status) ->
 xml2tree(File) ->
     {Elem, _} = xmerl_scan:file(File),
     Root  = get_root(Elem),
-    Queue = queue:in(Root, queue:new()),
+    Queue = queue:in({Root, undefined}, queue:new()),
     Entry = get_nodeid(Root),
-    Nodes = get_nodes(Queue, #{}, #{}),
+    Nodes = get_nodes(Queue, #{}),
     btree(Entry, Nodes).
 
-get_nodes(Queue, Nodes, IDs) ->
+get_nodes(Queue, Nodes) ->
     case queue:out(Queue) of
         {empty, _} ->
             Nodes;
-        {{value,Elem}, Queue1} ->
-            #xmlElement{name=Name, pos=Pos, content=Content} = Elem,
-            Node   = make_node(Elem, IDs),
+        {{value,{Elem,Parent}}, Queue1} ->
+            Node   = make_node(Elem, Parent),
             Nodes2 = maps:put(Node#bn.id, Node, Nodes),
             Queue2 = lists:foldl(fun
                 (E, AccQ) ->
                     case is_node(E) of
-                        true  -> queue:in(E, AccQ);
+                        true  -> queue:in({E,get_nodeid(Elem)}, AccQ);
                         false -> AccQ
                     end
-            end, Queue1, Content),
-            IDs2 = maps:put({Name,Pos}, Node#bn.id, IDs),
-            get_nodes(Queue2, Nodes2, IDs2)
+            end, Queue1, Elem#xmlElement.content),
+            get_nodes(Queue2, Nodes2)
     end.
 
-make_node(Elem, IDs) ->
+make_node(Elem, Parent) ->
     NodeID   = get_nodeid(Elem),
-    Parent   = get_parent(Elem, IDs),
     Handler  = get_handler(Elem),
     Props    = get_props(Elem),
     Children = get_children(Elem),
@@ -154,18 +171,6 @@ get_root2([Elem | T]) ->
     end;
 get_root2([]) ->
     throw({error, entry_not_found}).
-
-
-get_parent(Elem, IDs) ->
-    Key = get_parent2(Elem#xmlElement.parents),
-    maps:get(Key, IDs, undefined).
-
-get_parent2([{node,Pos} | _]) ->
-    {node,Pos};
-get_parent2([_ | T]) ->
-    get_parent2(T);
-get_parent2([]) ->
-    undefined.
 
 
 get_handler(Elem) ->
@@ -208,10 +213,24 @@ get_props2([], Props) ->
 
 convert_prop(Str) ->
     List  = string:split(Str, ",", all),
-    List2 = [list_to_atom(string:trim(E)) || E <- List],
+    List2 = [convert_prop2(string:trim(E)) || E <- List],
     case length(List2) == 1 of
         true  -> hd(List2);
         false -> List2
+    end.
+
+convert_prop2(Str) ->
+    case string:split(Str, "|", all) of
+        ["int", Val] ->
+            list_to_integer(Val);
+        ["str", Val] ->
+            Val;
+        [Val] ->
+            try
+                list_to_existing_atom(Val)
+            catch _:_ ->
+                list_to_atom(Val)
+            end
     end.
 
 get_children(Elem) ->

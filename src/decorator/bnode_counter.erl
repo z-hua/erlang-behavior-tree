@@ -18,9 +18,9 @@
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
     #bn{id=NodeID, props=Props, children=[ChildID], status=Status} = Node,
-    MaxTimes = proplists:get_value(times, Props),
+    MaxTimes = get_times(Props),
     case maps:find(times, Status) of
-    	{ok, 0} ->
+    	{ok, N} when N =< 0 ->
             bnode_behavior:backward(Tree#bt{result=?FAILURE}, Node);
         {ok, _} ->
             bnode_behavior:forward(Tree, ChildID);
@@ -35,12 +35,12 @@ backward(Tree, Node) ->
     #bt{result=Result, nodes=Nodes} = Tree,
     #bn{id=NodeID, props=Props, status=Status} = Node,
     CurTimes = maps:get(times, Status),
-    Increase = proplists:get_value(increase, Props, always),
+    Increase = get_increase(Props),
     NewTimes = if
         (Increase == until_succ andalso Result == ?SUCCESS);
         (Increase == until_fail andalso Result == ?FAILURE);
         Increase == always ->
-            CurTimes + 1;
+            CurTimes - 1;
         Increase == until_succ;
         Increase == until_fail ->
             CurTimes
@@ -52,3 +52,10 @@ backward(Tree, Node) ->
 %%%-----------------------------------------------------------------------------
 %%% Internal Functions
 %%%-----------------------------------------------------------------------------
+get_times(Props) ->
+    Times = proplists:get_value(times, Props),
+    ?_assertRequired(times, Times),
+    Times.
+
+get_increase(Props) ->
+    proplists:get_value(increase, Props, always).

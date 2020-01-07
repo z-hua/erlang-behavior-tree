@@ -1,0 +1,4 @@
+[{<<"btree">>,
+  {git,"https://gitee.com/z-hua/erlang-behavior-tree.git",
+       {ref,"a124600cff692452ec45fe0bcec87a6d41f88317"}},
+  0}].

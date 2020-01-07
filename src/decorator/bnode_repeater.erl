@@ -18,7 +18,7 @@
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
     #bn{id=NodeID, props=Props, children=[ChildID]} = Node,
-    Loop = proplists:get_value(loop, Props),
+    Loop = get_loop(Props),
     case is_integer(Loop) of
         true  ->
             Node2 = Node#bn{status=#{times=>Loop}},
@@ -32,13 +32,14 @@ forward(Tree, Node) ->
 backward(Tree, Node) ->
     #bt{nodes=Nodes, result=Result} = Tree,
     #bn{id=NodeID, props=Props, status=Status} = Node,
-    Loop = proplists:get_value(loop, Props),
+    Loop = get_loop(Props),
     if
         (Loop == until_succ andalso Result == ?SUCCESS);
         (Loop == until_fail andalso Result == ?FAILURE) ->
             bnode_behavior:backward(Tree, Node);
         Loop == until_succ;
-        Loop == until_fail ->
+        Loop == until_fail;
+        Loop == infinity ->
             Tree#bt{result=Node};
         true ->
             CurTimes = maps:get(times, Status),
@@ -59,3 +60,5 @@ backward(Tree, Node) ->
 %%%-----------------------------------------------------------------------------
 %%% Internal Functions
 %%%-----------------------------------------------------------------------------
+get_loop(Props) ->
+    proplists:get_value(loop, Props, infinity).

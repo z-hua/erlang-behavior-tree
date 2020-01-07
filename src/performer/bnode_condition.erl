@@ -16,15 +16,17 @@
 %%% API Functions
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
-    TrueOrFalse = case proplists:get_value(action, Node#bn.props) of
-    	{M,F,A} ->
+    Action  = proplists:get_value(action, Node#bn.props),
+    ?_assertRequired(action, Action),
+    Boolean = case Action of
+    	[M,F,A] ->
     		apply(M, F, A);
-    	{M,F} ->
+    	[M,F] ->
     		apply(M, F, []);
     	F when is_function(F, 0) ->
     		F()
 	end,
-	Result = case TrueOrFalse of
+	Result = case Boolean of
 	    true  -> ?SUCCESS;
 	    false -> ?FAILURE
 	end,

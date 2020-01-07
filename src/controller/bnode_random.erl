@@ -18,7 +18,7 @@
 %%%-----------------------------------------------------------------------------
 forward(Tree, Node) ->
     #bn{props=Props, children=Children} = Node,
-    Weighted = proplists:get_value(weight, Props, false),
+    Weighted = get_weight(Props),
     ChildID  = case Weighted of
         true  ->
             WtList = weight_list(Children, Tree),
@@ -57,3 +57,6 @@ weight_hit([Elem | T], Index, Random, Nth, SumWt) ->
         true  -> {Nth, Elem};
         false -> weight_hit(T, Index, Random, Nth+1, SumWt2)
     end.
+
+get_weight(Props) ->
+    proplists:get_value(weight, Props, false).
